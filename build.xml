@@ -7,7 +7,7 @@
 
    <!-- Starts Here ! -->
     <target name="build">
-        <phingcall target="deploy" />
+        <phingcall target="create_logs_folder" />
     </target>
     
    <!-- Any template to execute -->
@@ -59,5 +59,14 @@
       />
       
     </target>
-    
+
+    <target name="create_logs_folder" depends="deploy" >
+        <echo message="Create /application/logs/folder"/>
+        <ssh username="${remote_user}"
+            host="${remote_server}"
+            pubkeyfile="${pub_key}"
+            privkeyfile="${priv_key}"
+            command="mkdir ${remote_doc_root}/site/www/application/logs; chmod 0755 ${remote_doc_root}/site/www/application/logs"
+        /> 
+    </target>
 </project>
