@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<project name="SPEECH" default="build" >
+    <echo msg="Starting build script ..." />
+    <property file="prod.properties"/>
+    <property name="jenkins_sources" value="."/>
+    <property name="npm_app_folder" value="${jenkins_sources}/site/www"/>
+    <property name="sync_exclude_file" value="exclude.build" />
+
+   <!-- Starts Here ! -->
+    <target name="build">
+        <phingcall target="restart_passenger" />
+    </target>
+    
+   <!-- Any template to execute -->
+    <target name="config">
+        <copy todir="." overwrite="true">
+            <mapper type="glob" from="*.tpl" to="*" />
+            <filterchain>
+                <expandproperties />
+            </filterchain>
+            <fileset dir="templates/">
+                <include name="**/**" />
+            </fileset>
+        </copy>
+    </target>
+
+    <target name="disallow_search_engine">
+        <copy file="robots.txt" tofile="./site/www/robots.txt" overwrite="true"/>
+    </target>
+
+
+     <target name="npm_install" depends="config">
+        <echo message="npm install on server in ${npm_app_folder} folder"/>
+        <exec command="npm install" dir="${npm_app_folder}" logoutput="true"/>
+    </target>
+
+   
+
+    <target name="deploy" depends="npm_install" description="Deploys the current working copy to web root using FileSync">
+
+      <if>
+        <or>
+            <equals arg1="${environnement}" arg2="recette" />
+            <equals arg1="${environnement}" arg2="dev" />
+        </or>
+        <then>
+            <echo message="Disallow search engine" />
+            <phingcall target="disallow_search_engine" />
+            <phingcall target="setacl"/>
+        </then>
+        <else>
+            <exec command="rm ./site/www/robots.txt"/>
+        </else>
+      </if>
+
+      <taskdef name="sync" classname="phing.tasks.ext.FileSyncTask" />
+      <echo msg="Launching rsync" />
+      <sync
+        sourcedir="${jenkins_sources}"
+        destinationdir="${remote_user}@${remote_server}:${remote_doc_root}"
+        itemizechanges="true"
+        excludefile="${sync_exclude_file}"
+        verbose="true"
+        delete="true" 
+        options="-rKzlvh --stats"
+        identityFile="${priv_key}"
+        dryrun="false"
+      />
+      
+    </target>
+
+    <target name="restart_passenger" depends="deploy" >
+        <echo message="Restart Passenger Node App"/>
+        <ssh username="${remote_user}"
+            host="${remote_server}"
+            pubkeyfile="${pub_key}"
+            privkeyfile="${priv_key}"
+            command="touch ${remote_doc_root}/tmp/restart.txt"
+        /> 
+    </target>
+</project>
